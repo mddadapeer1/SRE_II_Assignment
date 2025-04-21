@@ -1,0 +1,14 @@
+users:
+  john:
+    displayname: "John Doe"
+    password: "$argon2id$v=19$m=65536,t=1,p=8$d2F0ZXJsb28$JCM1RjdtcnV3b0F1YkZBRTRDd1d1c3JhVzV1T3R1Vnc"
+    email: john@example.com
+    groups:
+      - admin
+      - dev
+  jane:
+    displayname: "Jane Smith"
+    password: "$argon2id$v=19$m=65536,t=1,p=8$d2F0ZXJsb28$JCM1RjdtcnV3b0F1YkZBRTRDd1d1c3JhVzV1T3R1Vnc"
+    email: jane@example.com
+    groups:
+      - dev
