@@ -1,0 +1,269 @@
+Here’s a **step-by-step guide to deploy Gitea and Grafana with Authelia SSO behind an Nginx reverse proxy** on AWS using EC2 instances. This solution is focused on direct installation **without Docker**.
+
+---
+
+## 🔧 **Architecture Overview**
+
+- **Instance 1 (Gitea + Nginx)**  
+  - Host Gitea web service  
+  - Reverse proxy to handle Gitea + Auth with Authelia  
+
+- **Instance 2 (Authelia + Nginx)**  
+  - Host Authelia  
+  - Acts as the authentication provider  
+
+- **Instance 3 (Grafana + Nginx)**  
+  - Host Grafana  
+  - Reverse proxy for Grafana + Auth with Authelia  
+
+---
+
+## 🛠️ Step-by-Step Setup
+
+---
+
+### ✅ Step 1: Provision EC2 Instances using AWS Console or Terraform
+
+- Launch **3 EC2 instances** (Ubuntu 22.04 LTS recommended)
+- Open ports: `80`, `443`, `3000` (Grafana), `3001` (Authelia), `22` (SSH), `22XX` (optional for Gitea SSH access)
+- Assign Elastic IPs to each
+- Optional: Use Terraform for provisioning (can help you with that too)
+
+---
+
+### ✅ Step 2: Install Required Packages on All Instances
+
+```bash
+sudo apt update
+sudo apt install -y nginx certbot python3-certbot-nginx git wget curl unzip ufw
+```
+
+Enable firewall:
+
+```bash
+sudo ufw allow 'Nginx Full'
+sudo ufw allow OpenSSH
+sudo ufw enable
+```
+
+---
+
+### ✅ Step 3: Instance 1 - **Install Gitea + Nginx**
+
+#### 3.1 Create a `git` user & install Gitea
+
+```bash
+sudo adduser \
+   --system \
+   --shell /bin/bash \
+   --gecos 'Git Version Control' \
+   --group \
+   --disabled-password \
+   --home /home/git \
+   git
+
+wget -O gitea https://dl.gitea.io/gitea/1.21.11/gitea-1.21.11-linux-amd64
+chmod +x gitea
+sudo mv gitea /usr/local/bin/gitea
+```
+
+#### 3.2 Create a systemd service
+
+```bash
+sudo nano /etc/systemd/system/gitea.service
+```
+
+Paste:
+
+```ini
+[Unit]
+Description=Gitea
+After=network.target
+
+[Service]
+RestartSec=2s
+Type=simple
+User=git
+Group=git
+WorkingDirectory=/home/git
+ExecStart=/usr/local/bin/gitea web
+Restart=always
+Environment=USER=git HOME=/home/git GITEA_WORK_DIR=/home/git
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```bash
+sudo systemctl daemon-reexec
+sudo systemctl enable --now gitea
+```
+
+---
+
+### ✅ Step 4: Instance 3 - **Install Grafana**
+
+```bash
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+echo "deb https://packages.grafana.com/oss/deb stable main" | sudo tee /etc/apt/sources.list.d/grafana.list
+sudo apt update
+sudo apt install grafana -y
+sudo systemctl enable --now grafana-server
+```
+
+---
+
+### ✅ Step 5: Instance 2 - **Install Authelia + Nginx**
+
+#### 5.1 Install Authelia
+
+```bash
+wget https://github.com/authelia/authelia/releases/latest/download/authelia-linux-amd64.tar.gz
+tar -xvf authelia-linux-amd64.tar.gz
+sudo mv authelia /usr/local/bin/authelia
+```
+
+#### 5.2 Create folders
+
+```bash
+sudo mkdir -p /etc/authelia /var/log/authelia
+```
+
+#### 5.3 Create `configuration.yml` (YAML backend)
+
+```bash
+sudo nano /etc/authelia/configuration.yml
+```
+
+Example config: [Authelia YAML Config Sample](https://www.authelia.com/configuration/authentication/backend/#file)
+
+If needed, I can give you a full example config too.
+
+---
+
+### ✅ Step 6: Configure Nginx Reverse Proxy for Each Instance
+
+#### 6.1 Gitea Nginx Proxy
+
+```bash
+sudo nano /etc/nginx/sites-available/gitea
+```
+
+```nginx
+server {
+    listen 80;
+    server_name gitea.example.com;
+
+    location / {
+        include /etc/nginx/authelia.conf;
+        proxy_pass http://localhost:3000;
+    }
+}
+```
+
+Symlink and restart:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/gitea /etc/nginx/sites-enabled/
+sudo systemctl reload nginx
+```
+
+#### 6.2 Grafana Nginx Proxy
+
+```bash
+sudo nano /etc/nginx/sites-available/grafana
+```
+
+```nginx
+server {
+    listen 80;
+    server_name grafana.example.com;
+
+    location / {
+        include /etc/nginx/authelia.conf;
+        proxy_pass http://localhost:3000;
+    }
+}
+```
+
+#### 6.3 Authelia Protection Snippet (`authelia.conf`)
+
+Create this on **each instance** (Gitea/Grafana)
+
+```nginx
+auth_request /authelia;
+auth_request_set $target_url $scheme://$http_host$request_uri;
+error_page 401 =302 https://auth.example.com/?rd=$target_url;
+
+location = /authelia {
+    internal;
+    proxy_pass http://<AUTHELIA_INSTANCE_IP>:9091/api/verify;
+    proxy_set_header Content-Length "";
+    proxy_pass_request_body off;
+    proxy_set_header X-Original-URL $target_url;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+---
+
+### ✅ Step 7: Authelia Configuration
+
+Create:
+
+- `configuration.yml`
+- `users_database.yml`
+
+Use Authelia's docs or I can help create them for you with sample users and 2FA disabled.
+
+```yaml
+authentication_backend:
+  file:
+    path: /etc/authelia/users_database.yml
+
+access_control:
+  default_policy: deny
+  rules:
+    - domain: "*.example.com"
+      policy: one_factor
+```
+
+---
+
+### ✅ Step 8: Set Up SSL with Let's Encrypt (Optional but recommended)
+
+```bash
+sudo certbot --nginx -d gitea.example.com
+sudo certbot --nginx -d grafana.example.com
+sudo certbot --nginx -d auth.example.com
+```
+
+---
+
+### ✅ Step 9: Test the Setup
+
+- Visit `gitea.example.com` → should redirect to `auth.example.com`
+- Authenticate with Authelia → redirect back to Gitea
+- Same with `grafana.example.com`
+
+---
+
+### ✅ Bonus (Optional): Automate with Terraform + User Data
+
+Let me know if you want to automate this entire setup with:
+
+- Terraform (for EC2 provisioning, security groups, etc.)
+- Bash scripts or Ansible for provisioning apps on each instance
+
+---
+
+## 🧩 Let Me Help You Further
+
+Would you like:
+- Full `authelia` config file (ready-to-use)?
+- Terraform files to create the EC2s and install dependencies?
+- Bash scripts to install Gitea, Grafana, Authelia automatically?
+
+Just say the word.
