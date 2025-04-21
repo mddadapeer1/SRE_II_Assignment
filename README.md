@@ -1,6 +1,5 @@
 # SRE II Assignment: Gitea and Grafana with SSO
-https://github.com/mddadapeer1/SRE_II_Assignment/blob/e34f68f5fe0ccb34880cc01cd11fccd38317a548/Architecture.png
-
+ 
 ## Architecture Overview
 
 This solution provides:
