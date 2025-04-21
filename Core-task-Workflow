@@ -1,8 +1,8 @@
-Here’s a **step-by-step guide to deploy Gitea and Grafana with Authelia SSO behind an Nginx reverse proxy** on AWS using EC2 instances. This solution is focused on direct installation **without Docker**.
+Here’s a **Heres the process to deploy Gitea and Grafana with Authelia SSO behind an Nginx reverse proxy** on AWS using EC2 instances. This solution is focused on direct installation **without Docker**.
 
 ---
 
-## 🔧 **Architecture Overview**
+##  **Architecture Overview**
 
 - **Instance 1 (Gitea + Nginx)**  
   - Host Gitea web service  
@@ -18,7 +18,7 @@ Here’s a **step-by-step guide to deploy Gitea and Grafana with Authelia SSO be
 
 ---
 
-## 🛠️ Step-by-Step Setup
+##  Step-by-Step Setup
 
 ---
 
@@ -26,7 +26,7 @@ Here’s a **step-by-step guide to deploy Gitea and Grafana with Authelia SSO be
 
 - Launch **3 EC2 instances** (Ubuntu 22.04 LTS recommended)
 - Open ports: `80`, `443`, `3000` (Grafana), `3001` (Authelia), `22` (SSH), `22XX` (optional for Gitea SSH access)
-- Assign Elastic IPs to each
+- Assign Elastic IPs to each #Optional
 - Optional: Use Terraform for provisioning (can help you with that too)
 
 ---
@@ -70,7 +70,7 @@ sudo mv gitea /usr/local/bin/gitea
 #### 3.2 Create a systemd service
 
 ```bash
-sudo nano /etc/systemd/system/gitea.service
+sudo vi /etc/systemd/system/gitea.service
 ```
 
 Paste:
@@ -132,7 +132,7 @@ sudo mkdir -p /etc/authelia /var/log/authelia
 #### 5.3 Create `configuration.yml` (YAML backend)
 
 ```bash
-sudo nano /etc/authelia/configuration.yml
+sudo vi /etc/authelia/configuration.yml
 ```
 
 Example config: [Authelia YAML Config Sample](https://www.authelia.com/configuration/authentication/backend/#file)
@@ -146,7 +146,7 @@ If needed, I can give you a full example config too.
 #### 6.1 Gitea Nginx Proxy
 
 ```bash
-sudo nano /etc/nginx/sites-available/gitea
+sudo vi /etc/nginx/sites-available/gitea
 ```
 
 ```nginx
@@ -171,7 +171,7 @@ sudo systemctl reload nginx
 #### 6.2 Grafana Nginx Proxy
 
 ```bash
-sudo nano /etc/nginx/sites-available/grafana
+sudo vi /etc/nginx/sites-available/grafana
 ```
 
 ```nginx
@@ -250,20 +250,4 @@ sudo certbot --nginx -d auth.example.com
 
 ---
 
-### ✅ Bonus (Optional): Automate with Terraform + User Data
-
-Let me know if you want to automate this entire setup with:
-
-- Terraform (for EC2 provisioning, security groups, etc.)
-- Bash scripts or Ansible for provisioning apps on each instance
-
----
-
-## 🧩 Let Me Help You Further
-
-Would you like:
-- Full `authelia` config file (ready-to-use)?
-- Terraform files to create the EC2s and install dependencies?
-- Bash scripts to install Gitea, Grafana, Authelia automatically?
-
-Just say the word.
+ 
