@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  authelia:
+    image: authelia/authelia
+    container_name: authelia
+    volumes:
+      - ./authelia/configuration.yml:/etc/authelia/configuration.yml
+      - ./authelia/users_database.yml:/etc/authelia/users_database.yml
+    environment:
+      - TZ=${TIMEZONE}
+    networks:
+      - sre-network
+    restart: unless-stopped
+
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - DB_TYPE=sqlite3
+      - DISABLE_REGISTRATION=true
+    volumes:
+      - gitea_data:/data
+      - ./gitea/app.ini:/data/gitea/conf/app.ini
+    networks:
+      - sre-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_AUTH_PROXY_ENABLED=true
+      - GF_AUTH_PROXY_HEADER_NAME=X-Forwarded-User
+      - GF_AUTH_PROXY_HEADER_PROPERTY=username
+      - GF_AUTH_PROXY_AUTO_SIGN_UP=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+    networks:
+      - sre-network
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:latest
+    container_name: nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - sre-network
+    depends_on:
+      - authelia
+      - gitea
+      - grafana
+    restart: unless-stopped
+
+networks:
+  sre-network:
+    driver: bridge
+
+volumes:
+  gitea_data:
+  grafana_data:
